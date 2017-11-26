@@ -44,13 +44,6 @@ Profiles:
             Organizations:
                 - *ORG1
                 - *ORG2
-    ORG1-ORG3:
-        Consortium: SampleConsortium
-        Application:
-            <<: *ApplicationDefaults
-            Organizations:
-                - *ORG1
-                - *ORG3
 
 ################################################################################
 #
