@@ -44,11 +44,22 @@ func (t *OwnershipChaincode) add(stub shim.ChaincodeStubInterface, args []string
 		return shim.Error("cannot get creator")
 	}
 
+
+
 	name, _ := getCreator(creatorBytes)
 
 	key := args[0]
 	value := name
 
+	bytes, err := stub.GetState(key)
+	if err != nil {
+		return shim.Error("cannot check record")
+	}
+	if bytes != nil {
+		return pb.Response{Status:403, Message:"record already exists"}
+
+	}
+	
 	err = stub.PutState(key, []byte(value))
 	if err != nil {
 		return shim.Error("cannot put state")
