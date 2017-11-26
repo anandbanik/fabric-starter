@@ -30,15 +30,30 @@ func (t *PaymentChaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response 
 		return t.add(stub, args)
 	} else if function == "query" {
 		return t.query(stub, args)
+	}else if function == "credit" {
+		return t.credit(stub, args)
 	}
 
 	return pb.Response{Status:403, Message:"unknown function name"}
 }
 
 func (t *PaymentChaincode) add(stub shim.ChaincodeStubInterface, args []string) pb.Response {
+	creatorBytes, err := stub.GetCreator()
+	if err != nil {
+		return shim.Error("cannot get creator")
+	}
+
+	name, org := getCreator(creatorBytes)
+
+	key := name + "@" + org
+
+	err = stub.PutState(key, []byte(args[0]))
+	if err != nil {
+		return shim.Error("cannot put state")
+	}
+
 	return shim.Success(nil)
 }
-
 
 func (t *PaymentChaincode) debit(stub shim.ChaincodeStubInterface, args []string) pb.Response {
 
@@ -47,7 +62,7 @@ func (t *PaymentChaincode) debit(stub shim.ChaincodeStubInterface, args []string
 	}
 
 	debitAmt := args[0]
-	producer := args[1]
+	asset := args[1]
 
 	creatorBytes, err := stub.GetCreator()
 	if err != nil {
@@ -57,13 +72,13 @@ func (t *PaymentChaincode) debit(stub shim.ChaincodeStubInterface, args []string
 	name, org := getCreator(creatorBytes)
 	consumer := name + "@" + org
 
-
 	consumervalbytes, err := stub.GetState(consumer)
 	if err != nil {
 		return shim.Error("Failed to get state")
 	}
+
 	if consumervalbytes == nil {
-		return pb.Response{Status:403, Message:"consumer not found"}
+		return pb.Response{Status:409, Message:"consumer balance not found"}
 	}
 
 	consumerval, _ := strconv.Atoi(string(consumervalbytes))
@@ -73,9 +88,10 @@ func (t *PaymentChaincode) debit(stub shim.ChaincodeStubInterface, args []string
 		return shim.Error("Invalid transaction amount, expecting a integer value")
 	}
 
-	if X < consumerval {
-		return pb.Response{Status:403, Message:"consumer does not have balance"}
+	if X > consumerval {
+		return pb.Response{Status:409, Message:"consumer does not have balance"}
 	}
+
 	consumerval = consumerval - X
 
 	logger.Debug("consumerval = %d \n", consumerval)
@@ -86,9 +102,47 @@ func (t *PaymentChaincode) debit(stub shim.ChaincodeStubInterface, args []string
 		return shim.Error(err.Error())
 	}
 
+	stub.SetEvent("debit", []byte(asset))
 
-	stub.SetEvent(producer,[]byte(producer))
+	return shim.Success(nil)
+}
 
+func (t *PaymentChaincode) credit(stub shim.ChaincodeStubInterface, args []string) pb.Response{
+	var valueToAdd, total int
+
+	if len(args) != 2 {
+		return pb.Response{Status:403, Message:"incorrect number of arguments"}
+	}
+
+	funcCall := []byte("query")
+	key := []byte(args[0])
+
+	argTocc := [][]byte{funcCall, key}
+
+	response := stub.InvokeChaincode("ownership", argTocc,"common")
+
+	payloadBytes := response.GetPayload()
+
+	owner := string(payloadBytes)
+
+	valueToAdd, err := strconv.Atoi(args[1])
+
+	balanceBytes, err := stub.GetState(owner)
+	if err != nil {
+		return shim.Error("Cannot get owner balance")
+	}
+
+	balance, err := strconv.Atoi(string(balanceBytes))
+	if err != nil {
+		return shim.Error("Cannot get owner balance")
+	}
+
+	total = balance + valueToAdd
+
+	err = stub.PutState(owner, []byte(strconv.Itoa(total)))
+	if err != nil {
+		return shim.Error("cannot put state")
+	}
 
 	return shim.Success(nil)
 }

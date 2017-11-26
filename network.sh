@@ -21,7 +21,7 @@ CHAINCODE_COMMON_NAME=ownership
 CHAINCODE_BILATERAL_NAME=payment
 CHAINCODE_COMMON_INIT='{"Args":["init"]}'
 CHAINCODE_BILATERAL_INIT='{"Args":["init","a","100","b","100"]}'
-CHAINCODE_WARMUP_QUERY='{\"Args\":[\"query\",\"123\"]}'
+CHAINCODE_WARMUP_QUERY='{\"Args\":[\"query\"]}'
 
 DEFAULT_ORDERER_PORT=7050
 DEFAULT_WWW_PORT=8080
@@ -361,8 +361,8 @@ function joinWarmUp() {
   chaincode_name=$3
 
   joinChannel ${org} ${channel_name}
-  sleep 7
-  warmUpChaincode ${org} ${channel_name} ${chaincode_name}
+  #sleep 7
+  #warmUpChaincode ${org} ${channel_name} ${chaincode_name}
 }
 
 function createJoinInstantiateWarmUp() {
@@ -374,8 +374,8 @@ function createJoinInstantiateWarmUp() {
   createChannel ${org} ${channel_name}
   joinChannel ${org} ${channel_name}
   instantiateChaincode ${org} ${channel_name} ${chaincode_name} ${chaincode_init}
-  sleep 7
-  warmUpChaincode ${org} ${channel_name} ${chaincode_name}
+  #sleep 7
+  #warmUpChaincode ${org} ${channel_name} ${chaincode_name}
 }
 
 function makeCertDirs() {

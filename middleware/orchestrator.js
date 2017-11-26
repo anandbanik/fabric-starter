@@ -30,10 +30,10 @@ module.exports = function (require) {
 
           logger.trace(`event ${event.event_name}`);
 
-          if(event.event_name === 'Payment.debit') {
+          if(event.event_name === 'debit') {
             let payload = JSON.parse(event.payload.toString());
-            logger.trace('Payment.debit', JSON.stringify(payload));
-            //moveByEvent(payload);
+            logger.trace('debit', JSON.stringify(payload));
+            moveByEvent(payload);
           }
         }); // thru action elements
       }); // thru block data elements
@@ -48,12 +48,12 @@ module.exports = function (require) {
   });
 
   function moveByEvent(payload) {
-    logger.debug('invoking move %s to %s', payload.quantity, payload.to);
+    logger.debug('invoking credit of %s for %s', payload);
 
-    let args = '[100, "a"]';
+    let args = ["123", "3"];
 
-    return invoke.invokeChaincode(['grpcs://peer0.consumer.hypermusic.com:7051'], 'payment', 'payment', 'move',
-      args, 'orchestrator', ORG)
+    return invoke.invokeChaincode(['peer0.gateway.hypermusic.com:7051'], 'gateway-producer',
+      'payment', 'credit', args, 'orchestrator', ORG)
       .then(transactionId => {
         logger.info('move success', transactionId);
       })
