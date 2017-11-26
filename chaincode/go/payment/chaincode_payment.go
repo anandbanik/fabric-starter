@@ -45,7 +45,7 @@ func (t *PaymentChaincode) debit(stub shim.ChaincodeStubInterface, args []string
 
 	if len(args) != 2 {
 		return pb.Response{Status:403, Message:"incorrect number of arguments"}
-	}
+	} 
 
 	debitAmt := args[0]
 	producer := args[1]
