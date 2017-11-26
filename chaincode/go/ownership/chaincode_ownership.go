@@ -3,10 +3,12 @@ package main
 
 import (
 	"fmt"
-	"strconv"
 
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 	pb "github.com/hyperledger/fabric/protos/peer"
+	"strings"
+	"encoding/pem"
+	"crypto/x509"
 )
 
 var logger = shim.NewLogger("OwnershipChaincode")
@@ -16,78 +18,74 @@ type OwnershipChaincode struct {
 
 func (t *OwnershipChaincode) Init(stub shim.ChaincodeStubInterface) pb.Response {
 	logger.Debug("Init")
-
 	return shim.Success(nil)
 }
 
 func (t *OwnershipChaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
 	logger.Debug("Invoke")
 	function, args := stub.GetFunctionAndParameters()
-	if function == "move" {
-		// Make payment of X units from A to B
-		return t.move(stub, args)
-	} else if function == "delete" {
-		// Deletes an entity from its state
-		return t.delete(stub, args)
+	if function == "add" {
+		return t.add(stub, args)
 	} else if function == "query" {
-		// the old "Query" is now implemtned in invoke
 		return t.query(stub, args)
 	}
 
 	return pb.Response{Status:403, Message:"unknown function name"}
 }
 
-func (t *OwnershipChaincode) move(stub shim.ChaincodeStubInterface, args []string) pb.Response {
-	var err error
+func (t *OwnershipChaincode) add(stub shim.ChaincodeStubInterface, args []string) pb.Response {
 
-	if len(args) != 3 {
+	if len(args) != 1 {
 		return pb.Response{Status:403, Message:"incorrect number of arguments"}
 	}
 
-	Avalbytes, err := stub.GetState(A)
+	creatorBytes, err := stub.GetCreator()
 	if err != nil {
-		return shim.Error("Failed to get state")
+		return shim.Error("cannot get creator")
 	}
-	if Avalbytes == nil {
-		return shim.Error("Entity not found")
+
+	name, _ := getCreator(creatorBytes)
+
+	key := args[0]
+	value := name
+
+	err = stub.PutState(key, []byte(value))
+	if err != nil {
+		return shim.Error("cannot put state")
 	}
-	Aval, _ = strconv.Atoi(string(Avalbytes))
 
 	return shim.Success(nil)
 }
 
-// query callback representing the query of a chaincode
 func (t *OwnershipChaincode) query(stub shim.ChaincodeStubInterface, args []string) pb.Response {
-	var A string // Entities
-	var err error
-
 	if len(args) != 1 {
-		//return shim.Error("Incorrect number of arguments. Expecting name of the person to query")
-		return shim.Success(nil)
+		return pb.Response{Status:403, Message:"incorrect number of arguments"}
 	}
 
-	A = args[0]
-
-	// Get the state from the ledger
-	Avalbytes, err := stub.GetState(A)
+	bytes, err := stub.GetState(args[0])
 	if err != nil {
-		jsonResp := "{\"Error\":\"Failed to get state for " + A + "\"}"
-		return shim.Error(jsonResp)
+		return shim.Error("cannot get state")
 	}
 
-	if Avalbytes == nil {
-		jsonResp := "{\"Error\":\"Nil amount for " + A + "\"}"
-		return shim.Error(jsonResp)
-	}
+	return shim.Success(bytes)
+}
 
-	jsonResp := "{\"Name\":\"" + A + "\",\"Amount\":\"" + string(Avalbytes) + "\"}"
-	fmt.Printf("Query Response:%s\n", jsonResp)
-	return shim.Success(Avalbytes)
+var getCreator = func (certificate []byte) (string, string) {
+	data := certificate[strings.Index(string(certificate), "-----"): strings.LastIndex(string(certificate), "-----")+5]
+	block, _ := pem.Decode([]byte(data))
+	cert, _ := x509.ParseCertificate(block.Bytes)
+	organization := cert.Issuer.Organization[0]
+	commonName := cert.Subject.CommonName
+	logger.Debug("commonName: " + commonName + ", organization: " + organization)
+
+	organizationShort := strings.Split(organization, ".")[0]
+
+	return commonName, organizationShort
 }
 
 func main() {
 	err := shim.Start(new(OwnershipChaincode))
 	if err != nil {
-		fmt.Printf("Error starting Simple chaincode: %s", err)
+		fmt.Printf("Error starting chaincode: %s", err)
 	}
 }
