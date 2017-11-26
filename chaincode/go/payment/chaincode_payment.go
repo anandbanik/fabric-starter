@@ -24,8 +24,8 @@ func (t *PaymentChaincode) Init(stub shim.ChaincodeStubInterface) pb.Response {
 func (t *PaymentChaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
 	logger.Debug("Invoke")
 	function, args := stub.GetFunctionAndParameters()
-	if function == "move" {
-		return t.move(stub, args)
+	if function == "debit" {
+		return t.debit(stub, args)
 	} else if function == "add" {
 		return t.add(stub, args)
 	} else if function == "query" {
@@ -39,56 +39,57 @@ func (t *PaymentChaincode) add(stub shim.ChaincodeStubInterface, args []string) 
 	return shim.Success(nil)
 }
 
-func (t *PaymentChaincode) move(stub shim.ChaincodeStubInterface, args []string) pb.Response {
-	var A, B string    // Entities
-	var Aval, Bval int // Asset holdings
-	var X int          // Transaction value
-	var err error
 
-	if len(args) != 3 {
+
+func (t *PaymentChaincode) debit(stub shim.ChaincodeStubInterface, args []string) pb.Response {
+
+	if len(args) != 2 {
 		return pb.Response{Status:403, Message:"incorrect number of arguments"}
 	}
 
-	A = args[0]
-	B = args[1]
+	debitAmt := args[0]
+	producer := args[1]
 
-	Avalbytes, err := stub.GetState(A)
+	creatorBytes, err := stub.GetCreator()
+	if err != nil {
+		return shim.Error("cannot find creator")
+	}
+
+	name, org := getCreator(creatorBytes)
+	consumer := name + "@" + org
+
+
+	consumervalbytes, err := stub.GetState(consumer)
 	if err != nil {
 		return shim.Error("Failed to get state")
 	}
-	if Avalbytes == nil {
-		return shim.Error("Entity not found")
+	if consumervalbytes == nil {
+		return pb.Response{Status:403, Message:"consumer not found"}
 	}
-	Aval, _ = strconv.Atoi(string(Avalbytes))
 
-	Bvalbytes, err := stub.GetState(B)
-	if err != nil {
-		return shim.Error("Failed to get state")
-	}
-	if Bvalbytes == nil {
-		return shim.Error("Entity not found")
-	}
-	Bval, _ = strconv.Atoi(string(Bvalbytes))
+	consumerval, _ := strconv.Atoi(string(consumervalbytes))
 
-	// Perform the execution
-	X, err = strconv.Atoi(args[2])
+	X, err := strconv.Atoi(debitAmt)
 	if err != nil {
 		return shim.Error("Invalid transaction amount, expecting a integer value")
 	}
-	Aval = Aval - X
-	Bval = Bval + X
-	fmt.Printf("Aval = %d, Bval = %d\n", Aval, Bval)
+
+	if X < consumerval {
+		return pb.Response{Status:403, Message:"consumer does not have balance"}
+	}
+	consumerval = consumerval - X
+
+	logger.Debug("consumerval = %d \n", consumerval)
 
 	// Write the state back to the ledger
-	err = stub.PutState(A, []byte(strconv.Itoa(Aval)))
+	err = stub.PutState(consumer, []byte(strconv.Itoa(consumerval)))
 	if err != nil {
 		return shim.Error(err.Error())
 	}
 
-	err = stub.PutState(B, []byte(strconv.Itoa(Bval)))
-	if err != nil {
-		return shim.Error(err.Error())
-	}
+
+	stub.SetEvent(producer,[]byte(producer))
+
 
 	return shim.Success(nil)
 }

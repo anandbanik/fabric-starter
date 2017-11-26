@@ -493,7 +493,7 @@ function devNetworkDown () {
 }
 
 function devInstall () {
-  docker-compose -f ${COMPOSE_FILE_DEV} run cli bash -c "peer chaincode install -p ownership -n mycc -v 0"
+  docker-compose -f ${COMPOSE_FILE_DEV} run cli bash -c "peer chaincode install -p payment -n mycc -v 0"
 }
 
 function devInstantiate () {
@@ -501,7 +501,7 @@ function devInstantiate () {
 }
 
 function devInvoke () {
-  docker-compose -f ${COMPOSE_FILE_DEV} run cli bash -c "peer chaincode invoke -n mycc -v 0 -C myc -c '{\"Args\":[\"add\",\"123\"]}'"
+  docker-compose -f ${COMPOSE_FILE_DEV} run cli bash -c "peer chaincode invoke -n mycc -v 0 -C myc -c '{\"Args\":[\"debit\",\"jingle-creator\",\"12\"]}'"
 }
 
 function devQuery () {
