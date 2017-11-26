@@ -30,6 +30,8 @@ func (t *PaymentChaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response 
 		return t.add(stub, args)
 	} else if function == "query" {
 		return t.query(stub, args)
+	}else if function == "credit" {
+		return t.credit(stub, args)
 	}
 
 	return pb.Response{Status:403, Message:"unknown function name"}
@@ -39,6 +41,49 @@ func (t *PaymentChaincode) add(stub shim.ChaincodeStubInterface, args []string) 
 	return shim.Success(nil)
 }
 
+
+func (t *PaymentChaincode) credit(stub shim.ChaincodeStubInterface, args []string) pb.Response{
+	
+	var valueToAdd, total int
+	
+	if len(args) != 2 {
+		return pb.Response{Status:403, Message:"incorrect number of arguments"}
+	}
+
+	funcCall := []byte("query")
+	key := []byte(args[0])
+
+	argTocc := [][]byte{funcCall,key}
+
+	response := stub.InvokeChaincode("mycc",argTocc,"gateway-producer")
+
+	payloadBytes := response.GetPayload()
+
+	owner := string(payloadBytes)
+
+	valueToAdd, err := strconv.Atoi(args[1])
+
+	rs, err := stub.GetState(owner)
+	if err != nil {
+		return shim.Error("Cannot get owner balance")
+	}
+
+	strBalance:= string(rs)
+	
+	balance, err := strconv.Atoi(strBalance)
+	if err != nil {
+		return shim.Error("Cannot get owner balance")
+	}
+
+	total = balance + valueToAdd
+
+	err = stub.PutState(owner, []byte(strconv.Itoa(total)))
+	if err != nil {
+		return shim.Error("cannot put state")
+	}
+
+	return shim.Success(nil)
+}
 func (t *PaymentChaincode) move(stub shim.ChaincodeStubInterface, args []string) pb.Response {
 	var A, B string    // Entities
 	var Aval, Bval int // Asset holdings
