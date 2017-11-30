@@ -741,9 +741,6 @@ elif [ "${MODE}" == "up-3" ]; then
   downloadChannelBlockFile ${ORG3} ${ORG2} "${ORG2}-${ORG3}"
   joinWarmUp ${ORG3} "${ORG2}-${ORG3}" ${CHAINCODE_BILATERAL_NAME}
 
-  downloadChannelBlockFile ${ORG3} ${ORG1}
-  joinWarmUp ${ORG3} ${CHAINCODE_BILATERAL_NAME}
-
 elif [ "${MODE}" == "logs" ]; then
   logs ${ORG}
 elif [ "${MODE}" == "devup" ]; then
